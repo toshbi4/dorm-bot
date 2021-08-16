@@ -75,6 +75,8 @@ class DormBot:
         elif not question.find('осмотр') == -1:
             osmotrPhoto = InputFile("osmotr.jpg")
             await DormBot.bot.send_photo(message.from_user.id, osmotrPhoto)
+        else:
+            return await message.answer('Ваш вопрос  перенаправлен администрации.')
 
         # keyboards.py
         inline_btn_1 = InlineKeyboardButton('Да :)', callback_data='qst_yes')
