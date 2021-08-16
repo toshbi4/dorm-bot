@@ -31,7 +31,7 @@ class DormBot:
     async def question(message: Message):
         state = DormBot.dp.current_state(user=message.from_user.id)
 
-        await state.set_state(TestStates.all()[1])
+        await state.set_state(TestStates.all()[2])
         await message.reply('Напиши, пожалуйста, текст вопроса.', reply=False)
 
     @staticmethod
@@ -39,8 +39,20 @@ class DormBot:
     async def request(message: Message):
         state = DormBot.dp.current_state(user=message.from_user.id)
 
-        await state.set_state(TestStates.all()[2])
-        await message.reply('Напиши, пожалуйста, текст заявки.', reply=False)
+        await state.set_state(TestStates.all()[3])
+        await message.reply('Напиши, пожалуйста, текст заявки в формате:\n'
+                            'Кому (электрику/сантехнику/плотнику)\n'
+                            'Место (комната 2222/вторая кабинка, туалет, 3й блок, 10 этаж)\n'
+                            'Ситуация (фонтан невероятной красоты прямиком из унитаза)', reply=False)
+
+    @staticmethod
+    @dp.message_handler(state='*', text=['Есть идея/пожелание/предложение.'])
+    async def question(message: Message):
+        state = DormBot.dp.current_state(user=message.from_user.id)
+
+        await state.set_state(TestStates.all()[1])
+        await message.reply('Напишите, пожалуйста, текст вашего предложения. '
+                            'Он будет отправлен администрации для рассмотрения', reply=False)
 
     @staticmethod
     @dp.message_handler(state=TestStates.QUESTION)
@@ -80,6 +92,14 @@ class DormBot:
         return await message.reply('Ваша заявка успешно принята.')
 
     @staticmethod
+    @dp.message_handler(state=TestStates.IDEA)
+    async def third_test_state_case_met(message: Message):
+        state = DormBot.dp.current_state(user=message.from_user.id)
+        await state.reset_state()
+        return await message.reply('Ваше предложение успешно отправлено '
+                                   'администрации для рассмотрения.')
+
+    @staticmethod
     @dp.callback_query_handler(lambda c: c.data.startswith('qst_yes'))
     async def process_callback_button1(callback_query: CallbackQuery):
         await DormBot.bot.answer_callback_query(callback_query.id)
@@ -103,9 +123,11 @@ class DormBot:
 
         button_questions = KeyboardButton('Хочу спросить.')
         button_request = KeyboardButton('Хочу оставить заявку.')
+        button_idea = KeyboardButton('Есть идея/пожелание/предложение.')
         greet_kb = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         greet_kb.add(button_questions)
         greet_kb.add(button_request)
+        greet_kb.add(button_idea)
 
         await message.answer(f"Привет! {message.from_user.first_name}! 👋",
                              parse_mode=ParseMode.HTML, reply_markup=greet_kb
