@@ -1,10 +1,10 @@
-from aiogram.utils.helper import Helper, HelperMode, ListItem
+from aiogram.dispatcher.filters.state import State, StatesGroup
 
 
-class TestStates(Helper):
-    mode = HelperMode.snake_case
+class DialogueStates(StatesGroup):
 
-    BASE = ListItem()
-    IDEA = ListItem()
-    QUESTION = ListItem()
-    REQUEST = ListItem()
+    base = State()
+    idea = State()
+    question = State()
+    sending = State()
+    request = State()

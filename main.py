@@ -1,15 +1,14 @@
 import logging
 import re
-from utils import TestStates
+from utils import DialogueStates
+from user_message import UserMessage
+from callbacks import Callbacks
 
 from aiogram import Bot, Dispatcher, executor
-from aiogram.dispatcher.filters import Text
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
-from aiogram.types import ReplyKeyboardRemove, \
-    ReplyKeyboardMarkup, KeyboardButton, \
-    InlineKeyboardMarkup, InlineKeyboardButton, \
-    Message, ParseMode, CallbackQuery, InputFile
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, Message, \
+    ParseMode, CallbackQuery, BotCommand
 
 
 class DormBot:
@@ -27,94 +26,12 @@ class DormBot:
         executor.start_polling(self.dp, on_shutdown=DormBot.shutdown, skip_updates=True)
 
     @staticmethod
-    @dp.message_handler(state='*', text=['Хочу спросить.'])
-    async def question(message: Message):
-        state = DormBot.dp.current_state(user=message.from_user.id)
-
-        await state.set_state(TestStates.all()[2])
-        await message.reply('Напиши, пожалуйста, текст вопроса.', reply=False)
-
-    @staticmethod
-    @dp.message_handler(state='*', text=['Хочу оставить заявку.'])
-    async def request(message: Message):
-        state = DormBot.dp.current_state(user=message.from_user.id)
-
-        await state.set_state(TestStates.all()[3])
-        await message.reply('Напиши, пожалуйста, текст заявки в формате:\n'
-                            'Кому (электрику/сантехнику/плотнику)\n'
-                            'Место (комната 2222/вторая кабинка, туалет, 3й блок, 10 этаж)\n'
-                            'Ситуация (фонтан невероятной красоты прямиком из унитаза)', reply=False)
-
-    @staticmethod
-    @dp.message_handler(state='*', text=['Есть идея/пожелание/предложение.'])
-    async def question(message: Message):
-        state = DormBot.dp.current_state(user=message.from_user.id)
-
-        await state.set_state(TestStates.all()[1])
-        await message.reply('Напишите, пожалуйста, текст вашего предложения. '
-                            'Он будет отправлен администрации для рассмотрения', reply=False)
-
-    @staticmethod
-    @dp.message_handler(state=TestStates.QUESTION)
-    async def first_test_state_case_met(message: Message):
-        state = DormBot.dp.current_state(user=message.from_user.id)
-
-        question = message.text.lower()
-
-        await state.reset_state()
-
-        if not question.find('расписан') == -1:
-            if not question.find('душ') == -1:
-                showerPhoto = InputFile("shower.jpg")
-                await DormBot.bot.send_photo(message.from_user.id, showerPhoto)
-            elif not question.find('прачечн') == -1:
-                await message.reply('Расписание прачечной.')
-            else:
-                return await message.reply('Такой комнаты нет в моей базе.'
-                                           'Попробуйте, например: "расписание душа"')
-        elif not question.find('осмотр') == -1:
-            osmotrPhoto = InputFile("osmotr.jpg")
-            await DormBot.bot.send_photo(message.from_user.id, osmotrPhoto)
-        else:
-            return await message.answer('Ваш вопрос  перенаправлен администрации.')
-
-        # keyboards.py
-        inline_btn_1 = InlineKeyboardButton('Да :)', callback_data='qst_yes')
-        inline_btn_2 = InlineKeyboardButton('Нет :(', callback_data='qst_no')
-        inline_kb1 = InlineKeyboardMarkup().add(inline_btn_1, inline_btn_2)
-
-        return await message.answer('Я ответил на ваш вопрос? \n---\n\"' + message.text + '\"',
-                                   reply_markup=inline_kb1)
-
-    @staticmethod
-    @dp.message_handler(state=TestStates.REQUEST)
-    async def second_test_state_case_met(message: Message):
-        state = DormBot.dp.current_state(user=message.from_user.id)
-        await state.reset_state()
-        return await message.reply('Ваша заявка успешно принята.')
-
-    @staticmethod
-    @dp.message_handler(state=TestStates.IDEA)
-    async def third_test_state_case_met(message: Message):
-        state = DormBot.dp.current_state(user=message.from_user.id)
-        await state.reset_state()
-        return await message.reply('Ваше предложение успешно отправлено '
-                                   'администрации для рассмотрения.')
-
-    @staticmethod
-    @dp.callback_query_handler(lambda c: c.data.startswith('qst_yes'))
-    async def process_callback_button1(callback_query: CallbackQuery):
-        await DormBot.bot.answer_callback_query(callback_query.id)
-        await DormBot.bot.send_message(callback_query.from_user.id, 'Приятно быть полезным!')
-
-    @staticmethod
-    @dp.callback_query_handler(lambda c: c.data.startswith('qst_no'))
-    async def process_callback_button2(callback_query: CallbackQuery):
-        sent_qst = callback_query.message.text
-        print(sent_qst.split('---\n')[1])
-        await DormBot.bot.answer_callback_query(callback_query.id)
-        await DormBot.bot.send_message(callback_query.from_user.id, 'Виноват. Ваш вопрос будет перенаправлен '
-                                                                    'администрации и на него ответит человек.')
+    async def set_commands():
+        commands = [
+            BotCommand(command="/start", description="Старт"),
+            BotCommand(command="/help", description="Информационная справка по работе с ботом")
+        ]
+        await DormBot.bot.set_my_commands(commands)
 
     @staticmethod
     @dp.message_handler(commands=['start', 'help'])
@@ -137,8 +54,24 @@ class DormBot:
 
     @staticmethod
     @dp.message_handler(state='*')
-    async def some_test_state_case_met(message: Message):
-        await message.reply('Выбери действиe в меню из нижней части диалога.', reply=False)
+    async def message_handler(message: Message):
+        state = DormBot.dp.current_state(user=message.from_user.id)
+        msg = UserMessage(message, state, DormBot.bot)
+        await msg.message_parse()
+        if msg.output:
+            await message.reply(msg.output, reply=False)
+        if msg.media:
+            await DormBot.bot.send_photo(msg.user_id, msg.media)
+        return 0
+
+    @staticmethod
+    @dp.callback_query_handler()
+    async def inline_callback(callback_query: CallbackQuery):
+        state = DormBot.dp.current_state(user=callback_query.from_user.id)
+        callback = Callbacks(callback_query, state)
+        await callback.process()
+        await DormBot.bot.answer_callback_query(callback_query.id)
+        await DormBot.bot.send_message(callback_query.from_user.id, callback.output)
 
     @staticmethod
     async def shutdown(dispatcher: Dispatcher):
@@ -148,3 +81,4 @@ class DormBot:
 
 if __name__ == '__main__':
     bot = DormBot()
+    DormBot.set_commands()
