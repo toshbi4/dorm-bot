@@ -1,6 +1,7 @@
 import logging
 import re
 from utils import DialogueStates
+from db import DBConnection
 from user_message import UserMessage
 from callbacks import Callbacks
 
@@ -21,6 +22,8 @@ class DormBot:
     dp = Dispatcher(bot, storage=MemoryStorage())
     dp.middleware.setup(LoggingMiddleware())
 
+    db_connection = DBConnection()
+
     def __init__(self):
 
         executor.start_polling(self.dp, on_shutdown=DormBot.shutdown, skip_updates=True)
@@ -39,24 +42,41 @@ class DormBot:
         """
         This handler will be called when user sends `/start` or `/help` command
         """
+        state = DormBot.dp.current_state(user=message.from_user.id)
+        if DormBot.db_connection.select_users(user_id=message.from_user.id):
+            button_questions = KeyboardButton('Хочу спросить.')
+            button_request = KeyboardButton('Хочу оставить заявку.')
+            button_idea = KeyboardButton('Есть идея/пожелание/предложение.')
+            greet_kb = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            greet_kb.add(button_questions)
+            greet_kb.add(button_request)
+            greet_kb.add(button_idea)
 
-        button_questions = KeyboardButton('Хочу спросить.')
-        button_request = KeyboardButton('Хочу оставить заявку.')
-        button_idea = KeyboardButton('Есть идея/пожелание/предложение.')
-        greet_kb = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        greet_kb.add(button_questions)
-        greet_kb.add(button_request)
-        greet_kb.add(button_idea)
-
-        await message.answer(f"Привет! {message.from_user.first_name}! 👋",
-                             parse_mode=ParseMode.HTML, reply_markup=greet_kb
-                             )
+            await message.answer(f"Привет! {message.from_user.first_name}!",
+                                 parse_mode=ParseMode.HTML, reply_markup=greet_kb
+                                 )
+        else:
+            await DialogueStates.registration.set()
+            await message.answer(f"Вам необходимо пройти регистраци."
+                                 f"Введите свои данные в соответствии со следующей формой: "
+                                 f"name surname group room."
+                                 )
 
     @staticmethod
     @dp.message_handler(state='*')
     async def message_handler(message: Message):
         state = DormBot.dp.current_state(user=message.from_user.id)
-        msg = UserMessage(message, state, DormBot.bot)
+        state_name = await state.get_state()
+
+        if (not DormBot.db_connection.select_users(user_id=message.from_user.id)) and \
+                (not (state_name == 'DialogueStates:registration')):
+            await DialogueStates.registration.set()
+            return await message.answer(f"Вам необходимо пройти регистраци."
+                                        f"Введите свои данные в соответствии со следующей формой: "
+                                        f"name surname group room."
+                                        )
+
+        msg = UserMessage(message, state, DormBot.bot, DormBot.db_connection)
         await msg.message_parse()
         if msg.output:
             await message.reply(msg.output, reply=False)

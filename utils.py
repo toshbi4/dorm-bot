@@ -8,3 +8,4 @@ class DialogueStates(StatesGroup):
     question = State()
     sending = State()
     request = State()
+    registration = State()

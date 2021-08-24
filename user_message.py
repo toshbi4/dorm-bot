@@ -2,6 +2,7 @@ from aiogram import Bot
 from aiogram.dispatcher import FSMContext
 from aiogram.types import Message, InputFile, InlineKeyboardButton, InlineKeyboardMarkup
 from utils import DialogueStates
+from db import DBConnection
 
 
 class UserMessage:
@@ -12,13 +13,14 @@ class UserMessage:
     output = ''
     media = None
 
-    def __init__(self, message: Message, state: FSMContext, bot: Bot):
+    def __init__(self, message: Message, state: FSMContext, bot: Bot, db_connection: DBConnection):
 
         self.state = state
         self.text = message.text
         self.user_id = message.from_user.id
-        self.bot = Bot
+        self.bot = bot
         self.message = message
+        self.db_connection = db_connection
 
     async def message_parse(self):
         state_name = await self.state.get_state()
@@ -46,6 +48,8 @@ class UserMessage:
             await self.request_state()
         elif state_name == 'DialogueStates:idea':
             await self.idea_state()
+        elif state_name == 'DialogueStates:registration':
+            await self.registration_state()
         else:
             self.output = 'Выбери действиe в меню из нижней части диалога.'
 
@@ -93,6 +97,24 @@ class UserMessage:
         await self.state.reset_state()
         self.output = 'Ваше предложение успешно отправлено ' \
                       'администрации для рассмотрения.'
+
+    async def registration_state(self):
+        user_data = self.text.split()
+        if self.db_connection.select_users(user_id=self.user_id):
+            await self.state.reset_state()
+            self.output = 'Вы уже зарегистрированы. Добро пожаловать.'
+        if len(user_data) == 4:
+            self.db_connection.add_user(self.user_id,
+                                        user_data[0],
+                                        user_data[1],
+                                        user_data[2],
+                                        int(user_data[3]))
+
+            await self.state.reset_state()
+            self.output = 'Вы были успешно зарегистрированы! ' \
+                          'Добро пожаловать!'
+        else:
+            self.output = 'Ошибка введенных данных.'
 
     def send_to_administration(self):
         pass
