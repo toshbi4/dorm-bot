@@ -19,7 +19,7 @@ class DBConnection:
                                     );"""
 
         sql_create_tasks_table = """CREATE TABLE IF NOT EXISTS default_answers (
-                                        id integer PRIMARY KEY,
+                                        id integer PRIMARY KEY AUTOINCREMENT,
                                         key_words text NOT NULL,
                                         media_paths text,
                                         answer_text text NOT NULL
@@ -65,7 +65,7 @@ class DBConnection:
             print(e)
 
     def add_user(self, user_id: int, name: str, surname: str, group: str, room: int):
-        self.cursor.execute('INSERT INTO users (id, name, surname, user_group, room) VALUES (?, ?, ?, ?, ?)',
+        self.cursor.execute('INSERT INTO users (id, name, surname, user_group, room) VALUES (?, ?, ?, ?, ?);',
                             (user_id, name, surname, group, room))
         self.conn.commit()
 
@@ -83,9 +83,23 @@ class DBConnection:
             self.cursor.execute("SELECT * from users;")
             return self.cursor.fetchall()
 
+    def add_answer(self, key_words: str, media_paths: str, answer_text: str):
+        self.cursor.execute('INSERT INTO default_answers (key_words, media_paths, answer_text) VALUES (?, ?, ?);',
+                            (key_words, media_paths, answer_text))
+        self.conn.commit()
+
+    def get_answers(self):
+        self.cursor.execute("SELECT * from default_answers;")
+        return self.cursor.fetchall()
+
+    def del_answers(self, answer_id: int):
+        self.cursor.execute("DELETE from default_answers where id=?;", (str(answer_id),))
+        self.conn.commit()
+
 
 if __name__ == '__main__':
     db_connection = DBConnection()
+    db_connection.add_answer()
     print(db_connection.select_users())
     print(db_connection.select_users(user_id=1012))
     print(db_connection.select_users(group='админ'))

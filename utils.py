@@ -9,3 +9,5 @@ class DialogueStates(StatesGroup):
     sending = State()
     request = State()
     registration = State()
+    add_default_question = State()
+    del_default_question = State()

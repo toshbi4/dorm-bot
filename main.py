@@ -9,7 +9,7 @@ from aiogram import Bot, Dispatcher, executor
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, Message, \
-    ParseMode, CallbackQuery, BotCommand
+    ParseMode, CallbackQuery, BotCommand, ContentType
 
 
 class DormBot:
@@ -23,6 +23,8 @@ class DormBot:
     dp.middleware.setup(LoggingMiddleware())
 
     db_connection = DBConnection()
+
+    default_answers = db_connection.get_answers()
 
     def __init__(self):
 
@@ -52,6 +54,12 @@ class DormBot:
             greet_kb.add(button_request)
             greet_kb.add(button_idea)
 
+            if DormBot.db_connection.select_users(user_id=message.from_user.id)[0][3] == 'admin':
+                button_add_answer = KeyboardButton('Добавить стандартный вопрос.')
+                button_del_answer = KeyboardButton('Удалить стандартный вопрос.')
+                greet_kb.add(button_add_answer)
+                greet_kb.add(button_del_answer)
+
             await message.answer(f"Привет! {message.from_user.first_name}!",
                                  parse_mode=ParseMode.HTML, reply_markup=greet_kb
                                  )
@@ -62,12 +70,17 @@ class DormBot:
                                  f"name surname group room."
                                  )
 
+    # @staticmethod
+    # @dp.message_handler(content_types=['photo'])
+    # async def handle_docs_photo(message):
+    #     print('get_photo')
+
     @staticmethod
-    @dp.message_handler(state='*')
+    @dp.message_handler(state='*', content_types=['photo', 'text'])
     async def message_handler(message: Message):
         state = DormBot.dp.current_state(user=message.from_user.id)
         state_name = await state.get_state()
-
+        print(message.content_type == ContentType.PHOTO)
         if (not DormBot.db_connection.select_users(user_id=message.from_user.id)) and \
                 (not (state_name == 'DialogueStates:registration')):
             await DialogueStates.registration.set()
@@ -76,7 +89,7 @@ class DormBot:
                                         f"name surname group room."
                                         )
 
-        msg = UserMessage(message, state, DormBot.bot, DormBot.db_connection)
+        msg = UserMessage(message, state, DormBot.bot, DormBot.db_connection, DormBot.default_answers)
         await msg.message_parse()
         if msg.output:
             await message.reply(msg.output, reply=False)
