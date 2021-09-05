@@ -32,6 +32,10 @@ class UserMessage:
 
     async def message_parse(self):
         state_name = await self.state.get_state()
+        try:
+            user_group = self.db_connection.select_users(user_id=self.user_id)[0][3]
+        except:
+            user_group = 'newbee'
 
         if self.text == 'Хочу спросить.':
             await DialogueStates.question.set()
@@ -49,13 +53,13 @@ class UserMessage:
             self.output = 'Напишите, пожалуйста, текст вашего предложения. ' \
                           'Он будет отправлен администрации для рассмотрения'
             return 0
-        elif self.text == 'Добавить стандартный вопрос.':
+        elif self.text == 'Добавить стандартный вопрос.' and user_group == 'admin':
             await DialogueStates.add_default_question.set()
             self.output = 'Укажите данные для стандартного вопроса в формате: ' \
                           '"<ключевые слова>,' \
                           '<текст>". Также к соощению можно приложить одно фото, которое отобразится в ответе.'
             return 0
-        elif self.text == 'Удалить стандартный вопрос.':
+        elif self.text == 'Удалить стандартный вопрос.' and user_group == 'admin':
             await DialogueStates.del_default_question.set()
             answers_list = ''
             for answer in self.default_answers:
@@ -143,12 +147,13 @@ class UserMessage:
         if self.db_connection.select_users(user_id=self.user_id):
             await self.state.reset_state()
             self.output = 'Вы уже зарегистрированы. Добро пожаловать.'
-        if len(user_data) == 4:
+        user_group = 'user'
+        if len(user_data) == 3:
             self.db_connection.add_user(self.user_id,
                                         user_data[0],
                                         user_data[1],
-                                        user_data[2],
-                                        int(user_data[3]))
+                                        user_group,
+                                        int(user_data[2]))
 
             await self.state.reset_state()
             self.output = 'Вы были успешно зарегистрированы! ' \

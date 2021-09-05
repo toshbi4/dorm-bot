@@ -79,13 +79,12 @@ class DormBot:
 
         state = DormBot.dp.current_state(user=message.from_user.id)
         state_name = await state.get_state()
-        print(message.content_type == ContentType.PHOTO)
         if (not DormBot.db_connection.select_users(user_id=message.from_user.id)) and \
                 (not (state_name == 'DialogueStates:registration')):
             await DialogueStates.registration.set()
             return await message.answer(f"Вам необходимо пройти регистраци."
                                         f"Введите свои данные в соответствии со следующей формой: "
-                                        f"name surname group room."
+                                        f"Имя Фамилия Комната."
                                         )
 
         msg = UserMessage(message, state, DormBot.bot, DormBot.db_connection, DormBot.default_answers)
@@ -132,7 +131,8 @@ class DormBot:
         except Exception as ex:
             return 0
 
-        question_text = str(question_id) + ' ' + user_name + ' ' + user_surname + ' ' + str(user_room) + '\n' + question_text
+        question_text = str(question_id) + ' ' + user_name + ' ' + \
+                        user_surname + ' ' + str(user_room) + '\n' + question_text
 
         await DormBot.bot.send_message(chat_id=-523185281, text=question_text)
         DormBot.db_connection.update_question(question_id=question_id, status='processing')
