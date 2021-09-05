@@ -134,10 +134,12 @@ class UserMessage:
                                          reply_markup=inline_kb1)
 
     async def request_state(self):
+        self.db_connection.add_question(self.state.chat, self.text)
         await self.state.reset_state()
         self.output = 'Ваша заявка успешно принята.'
 
     async def idea_state(self):
+        self.db_connection.add_question(self.state.chat, self.text)
         await self.state.reset_state()
         self.output = 'Ваше предложение успешно отправлено ' \
                       'администрации для рассмотрения.'
@@ -167,7 +169,13 @@ class UserMessage:
 
             photo_path = ''
             if self.message.content_type == ContentType.PHOTO:
-                photo_path = 'imgs/' + str(self.default_answers[-1][0] + 1)
+
+                try:
+                    count = str(self.default_answers[-1][0] + 1)
+                except:
+                    count = '0'
+
+                photo_path = 'imgs/' + count
                 await self.message.photo[-1].download(photo_path)
 
             self.db_connection.add_answer(default_answer[0],

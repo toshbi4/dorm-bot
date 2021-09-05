@@ -68,10 +68,10 @@ class DormBot:
                                  )
         else:
             await DialogueStates.registration.set()
-            await message.answer(f"Вам необходимо пройти регистраци."
+            await message.answer(f"Вам необходимо пройти регистрацию. "
                                  f"Введите свои данные в соответствии со следующей формой: "
-                                 f"name surname group room."
-                                 )
+                                 f"Имя Фамилия Комната."
+                                )
 
     @staticmethod
     @dp.message_handler(state='*', content_types=['photo', 'text'], )
@@ -82,7 +82,7 @@ class DormBot:
         if (not DormBot.db_connection.select_users(user_id=message.from_user.id)) and \
                 (not (state_name == 'DialogueStates:registration')):
             await DialogueStates.registration.set()
-            return await message.answer(f"Вам необходимо пройти регистраци."
+            return await message.answer(f"Вам необходимо пройти регистрацию. "
                                         f"Введите свои данные в соответствии со следующей формой: "
                                         f"Имя Фамилия Комната."
                                         )
