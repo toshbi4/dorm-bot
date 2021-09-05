@@ -1,5 +1,4 @@
-import logging
-import re
+import asyncio
 from utils import DialogueStates
 from db import DBConnection
 from user_message import UserMessage
@@ -17,6 +16,8 @@ class DormBot:
     bot_token = f.read().strip()
     f.close()
 
+    message_delay = 5
+
     # Initialize bot and dispatcher
     bot = Bot(token=bot_token)
     dp = Dispatcher(bot, storage=MemoryStorage())
@@ -28,7 +29,9 @@ class DormBot:
 
     def __init__(self):
 
-        executor.start_polling(self.dp, on_shutdown=DormBot.shutdown, skip_updates=True)
+        loop = asyncio.get_event_loop()
+        loop.call_later(DormBot.message_delay, DormBot.repeat, DormBot.send_to_administration, loop)
+        executor.start_polling(self.dp, on_shutdown=DormBot.shutdown, skip_updates=True, loop=loop)
 
     @staticmethod
     async def set_commands():
@@ -70,14 +73,10 @@ class DormBot:
                                  f"name surname group room."
                                  )
 
-    # @staticmethod
-    # @dp.message_handler(content_types=['photo'])
-    # async def handle_docs_photo(message):
-    #     print('get_photo')
-
     @staticmethod
-    @dp.message_handler(state='*', content_types=['photo', 'text'])
+    @dp.message_handler(state='*', content_types=['photo', 'text'], )
     async def message_handler(message: Message):
+
         state = DormBot.dp.current_state(user=message.from_user.id)
         state_name = await state.get_state()
         print(message.content_type == ContentType.PHOTO)
@@ -101,7 +100,7 @@ class DormBot:
     @dp.callback_query_handler()
     async def inline_callback(callback_query: CallbackQuery):
         state = DormBot.dp.current_state(user=callback_query.from_user.id)
-        callback = Callbacks(callback_query, state)
+        callback = Callbacks(callback_query, state, DormBot.db_connection)
         await callback.process()
         await DormBot.bot.answer_callback_query(callback_query.id)
         await DormBot.bot.send_message(callback_query.from_user.id, callback.output)
@@ -111,7 +110,33 @@ class DormBot:
         await dispatcher.storage.close()
         await dispatcher.storage.wait_closed()
 
+    @staticmethod
+    def repeat(coro, loop):
+        asyncio.ensure_future(coro(), loop=loop)
+        loop.call_later(DormBot.message_delay, DormBot.repeat, coro, loop)
+
+    @staticmethod
+    async def send_to_administration():
+
+        try:
+            question_row = DormBot.db_connection.get_last_queued_question()
+            question_id = question_row[0][0]
+            user_id = question_row[0][1]
+            question_text = question_row[0][2]
+
+            user_row = DormBot.db_connection.select_users(user_id=user_id)
+            user_name = user_row[0][1]
+            user_surname = user_row[0][2]
+            user_room = user_row[0][4]
+
+        except Exception as ex:
+            return 0
+
+        question_text = str(question_id) + ' ' + user_name + ' ' + user_surname + ' ' + str(user_room) + '\n' + question_text
+
+        await DormBot.bot.send_message(chat_id=-523185281, text=question_text)
+        DormBot.db_connection.update_question(question_id=question_id, status='processing')
+
 
 if __name__ == '__main__':
     bot = DormBot()
-    DormBot.set_commands()

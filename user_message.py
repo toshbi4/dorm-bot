@@ -79,7 +79,20 @@ class UserMessage:
         elif state_name == 'DialogueStates:del_default_question':
             await self.del_default_question_state()
         else:
-            self.output = 'Выбери действиe в меню из нижней части диалога.'
+            if not self.message.chat.type == 'group':
+                self.output = 'Выбери действиe в меню из нижней части диалога.'
+            else:
+                if self.message.reply_to_message.text:
+                    await self.handle_replied_answer()
+
+    async def handle_replied_answer(self):
+        replied_text = self.message.reply_to_message.text
+        self.output = 'Ответ был успешно отправлен!'
+
+        msg_id = replied_text.split()[0]
+        user_id = self.db_connection.get_question(msg_id)[0][1]
+
+        await self.bot.send_message(chat_id=user_id, text=self.text)
 
     async def question_state(self):
 
@@ -87,7 +100,6 @@ class UserMessage:
 
         for answer in self.default_answers:
             key_words = answer[1].split()
-            print(key_words)
             accept_answer = True
             for word in key_words:
                 if self.text.lower().find(word) == -1:
@@ -149,7 +161,6 @@ class UserMessage:
         if len(default_answer) >= 2:
 
             photo_path = ''
-            print(self.message.content_type)
             if self.message.content_type == ContentType.PHOTO:
                 photo_path = 'imgs/' + str(self.default_answers[-1][0] + 1)
                 await self.message.photo[-1].download(photo_path)
@@ -165,8 +176,6 @@ class UserMessage:
                                          default_answer[0],
                                          photo_path,
                                          default_answer[1].strip()))
-            print(self.default_answers)
-            print(self.db_connection.get_answers())
 
         self.output = 'Добавил новый стандартный ответ.'
         await self.state.reset_state()
@@ -178,7 +187,6 @@ class UserMessage:
             await self.state.reset_state()
 
             for answer in self.default_answers:
-                print(answer[0], int(self.text))
                 if answer[0] == int(self.text):
                     self.default_answers.remove(answer)
                     break
@@ -188,5 +196,5 @@ class UserMessage:
                           'который хотите удалить, числом.'
             print(ex)
 
-    def send_to_administration(self):
+    def save_question_to_queue(self):
         pass

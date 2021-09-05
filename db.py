@@ -1,3 +1,4 @@
+import datetime
 import sqlite3
 from sqlite3 import Error
 
@@ -10,7 +11,7 @@ class DBConnection:
     def __init__(self):
         self.db_file_path = r"db/bot.db"
 
-        sql_create_projects_table = """CREATE TABLE IF NOT EXISTS users (
+        sql_create_users_table = """CREATE TABLE IF NOT EXISTS users (
                                         id integer PRIMARY KEY,
                                         name text NOT NULL,
                                         surname text,
@@ -18,23 +19,31 @@ class DBConnection:
                                         room integer NOT NULL
                                     );"""
 
-        sql_create_tasks_table = """CREATE TABLE IF NOT EXISTS default_answers (
+        sql_create_answers_table = """CREATE TABLE IF NOT EXISTS default_answers (
                                         id integer PRIMARY KEY AUTOINCREMENT,
                                         key_words text NOT NULL,
                                         media_paths text,
                                         answer_text text NOT NULL
                                     );"""
 
+        sql_create_questions_table = """CREATE TABLE IF NOT EXISTS questions (
+                                                id integer PRIMARY KEY AUTOINCREMENT,
+                                                user_id integer NOT NULL,
+                                                text text NOT NULL,
+                                                status text NOT NULL,
+                                                time timestamp NOT NULL
+                                            );"""
+
         # create a database connection
         self.create_connection()
 
         # create tables
         if self.conn is not None:
-            # create projects table
-            self.create_table(sql_create_projects_table)
 
-            # create tasks table
-            self.create_table(sql_create_tasks_table)
+            self.create_table(sql_create_users_table)
+            self.create_table(sql_create_answers_table)
+            self.create_table(sql_create_questions_table)
+
         else:
             print("Error! cannot create the database connection.")
 
@@ -95,6 +104,28 @@ class DBConnection:
     def del_answers(self, answer_id: int):
         self.cursor.execute("DELETE from default_answers where id=?;", (str(answer_id),))
         self.conn.commit()
+
+    def add_question(self, user_id: int, text: str):
+        self.cursor.execute('INSERT INTO questions (user_id, text, status, time) VALUES (?, ?, ?, ?);',
+                            (user_id, text, 'queue', datetime.datetime.now()))
+        self.conn.commit()
+
+    def del_question(self, question_id: int):
+        self.cursor.execute("DELETE from questions where id=?;", (str(question_id),))
+        self.conn.commit()
+
+    def get_last_queued_question(self):
+        self.cursor.execute("SELECT * FROM questions WHERE status='queue' ORDER BY time DESC LIMIT 1;")
+        return self.cursor.fetchall()
+
+    def update_question(self, question_id: int, status: str):
+        self.cursor.execute('UPDATE questions SET status=? WHERE id=?;', (status, str(question_id),))
+        return self.conn.commit()
+
+    def get_question(self, question_id: int):
+        print(question_id)
+        self.cursor.execute("SELECT * FROM questions WHERE id=?;", (question_id,))
+        return self.cursor.fetchall()
 
 
 if __name__ == '__main__':
