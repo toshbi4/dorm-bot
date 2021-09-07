@@ -13,6 +13,8 @@ class UserMessage:
     output = ''
     media = None
     default_answers = []
+    inline_kb = None
+    inline_kb_text = ''
 
     def __init__(self, message: Message, state: FSMContext, bot: Bot, db_connection: DBConnection, default_answers):
 
@@ -31,7 +33,6 @@ class UserMessage:
             self.text = message.caption_entities
 
     async def message_parse(self):
-        state_name = await self.state.get_state()
         try:
             user_group = self.db_connection.select_users(user_id=self.user_id)[0][3]
         except:
@@ -40,25 +41,22 @@ class UserMessage:
         if self.text == 'Хочу спросить.':
             await DialogueStates.question.set()
             self.output = 'Напиши, пожалуйста, текст вопроса.'
-            return 0
+
         elif self.text == 'Хочу оставить заявку.':
             await DialogueStates.request.set()
             self.output = 'Напиши, пожалуйста, текст заявки в формате:\n' \
                           'Кому (электрику/сантехнику/плотнику)\n' \
                           'Место (комната 2222/вторая кабинка, туалет, 3й блок, 10 этаж)\n' \
                           'Ситуация (фонтан невероятной красоты прямиком из унитаза)'
-            return 0
         elif self.text == 'Есть идея/пожелание/предложение.':
             await DialogueStates.idea.set()
             self.output = 'Напишите, пожалуйста, текст вашего предложения. ' \
                           'Он будет отправлен администрации для рассмотрения'
-            return 0
         elif self.text == 'Добавить стандартный вопрос.' and user_group == 'admin':
             await DialogueStates.add_default_question.set()
             self.output = 'Укажите данные для стандартного вопроса в формате: ' \
                           '"<ключевые слова>,' \
                           '<текст>". Также к соощению можно приложить одно фото, которое отобразится в ответе.'
-            return 0
         elif self.text == 'Удалить стандартный вопрос.' and user_group == 'admin':
             await DialogueStates.del_default_question.set()
             answers_list = ''
@@ -68,7 +66,11 @@ class UserMessage:
                 answers_list += '\n'
 
             self.output = ' Выберите id ответа, который хотите удалить: \n' + answers_list
-            return 0
+        else:
+            await self.state_handler()
+
+    async def state_handler(self):
+        state_name = await self.state.get_state()
 
         if state_name == 'DialogueStates:question':
             await self.question_state()
@@ -94,7 +96,10 @@ class UserMessage:
         self.output = 'Ответ был успешно отправлен!'
 
         msg_id = replied_text.split()[0]
+        msg_text = replied_text.split()[4]
         user_id = self.db_connection.get_question(msg_id)[0][1]
+
+        self.text = "Ответ на ваше сообщение: \n \" " + msg_text + " \" \n" + self.text
 
         await self.bot.send_message(chat_id=user_id, text=self.text)
 
@@ -122,16 +127,17 @@ class UserMessage:
                                                     callback_data='qst_no')
                 inline_kb1 = InlineKeyboardMarkup().row(inline_btn_1)
                 inline_kb1.add(inline_btn_2)
-
-                return await self.message.answer('Я ответил на ваш вопрос?', reply_markup=inline_kb1)
+                self.inline_kb = inline_kb1
+                self.inline_kb_text = 'Я ответил на Ваш вопрос?'
+                return 0
 
         # keyboards.py
         inline_btn_1 = InlineKeyboardButton('Ок', callback_data='agree')
         inline_btn_2 = InlineKeyboardButton('Не ок', callback_data='disagree')
         inline_kb1 = InlineKeyboardMarkup().add(inline_btn_1, inline_btn_2)
+        self.inline_kb = inline_kb1
+        self.inline_kb_text = 'Перенаправить Ваш вопрос администрации?.'
         await self.state.update_data(question=self.text)
-        return await self.message.answer('Ваш вопрос будет отправлен администрации. Ок?',
-                                         reply_markup=inline_kb1)
 
     async def request_state(self):
         self.db_connection.add_question(self.state.chat, self.text)

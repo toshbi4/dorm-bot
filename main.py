@@ -42,10 +42,10 @@ class DormBot:
         await DormBot.bot.set_my_commands(commands)
 
     @staticmethod
-    @dp.message_handler(commands=['start', 'help'])
+    @dp.message_handler(commands=['start'])
     async def send_welcome(message: Message):
         """
-        This handler will be called when user sends `/start` or `/help` command
+        This handler will be called when user sends `/start` command
         """
         state = DormBot.dp.current_state(user=message.from_user.id)
         if DormBot.db_connection.select_users(user_id=message.from_user.id):
@@ -74,6 +74,14 @@ class DormBot:
                                 )
 
     @staticmethod
+    @dp.message_handler(commands=['help'])
+    async def help_command(message: Message):
+        await message.answer(f"Привет! Я создан, чтобы помогать тебе, сделать твою жизнь в общежитии комфортнее."
+                             f" Все команды доступны из меню, открыть которое можно из панели клавиатуры "
+                             f"в правом нижнем углу. Чтобы меню появилось, необходимо написать мне \"/start\","
+                             f" если ты конечно еще не сделал этого ранее.")
+
+    @staticmethod
     @dp.message_handler(state='*', content_types=['photo', 'text'], )
     async def message_handler(message: Message):
 
@@ -89,10 +97,14 @@ class DormBot:
 
         msg = UserMessage(message, state, DormBot.bot, DormBot.db_connection, DormBot.default_answers)
         await msg.message_parse()
+
         if msg.output:
-            await message.reply(msg.output, reply=False)
+            await msg.message.reply(msg.output, reply=False)
         if msg.media:
-            await DormBot.bot.send_photo(msg.user_id, msg.media)
+            await msg.bot.send_photo(msg.user_id, msg.media)
+        if msg.inline_kb:
+            await msg.message.answer(msg.inline_kb_text, reply_markup=msg.inline_kb)
+
         return 0
 
     @staticmethod

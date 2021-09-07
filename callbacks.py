@@ -30,6 +30,7 @@ class Callbacks:
 
     async def callback_no_btn(self):
         user_data = await self.state.get_data()
+        self.db_connection.add_question(self.state.chat, user_data['question'])
         self.output = 'Виноват. Ваш вопрос перенаправлен администрации.'
 
     async def callback_agree_btn(self):
