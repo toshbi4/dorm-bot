@@ -15,6 +15,7 @@ class UserMessage:
     default_answers = []
     inline_kb = None
     inline_kb_text = ''
+    swearing = []
 
     def __init__(self, message: Message, state: FSMContext, bot: Bot, db_connection: DBConnection, default_answers):
 
@@ -32,11 +33,21 @@ class UserMessage:
         elif message.caption_entities:
             self.text = message.caption_entities
 
+        f = open("cfg/swearing.txt", "r")
+        self.swearing = f.read().split()
+        f.close()
+
     async def message_parse(self):
+
         try:
             user_group = self.db_connection.select_users(user_id=self.user_id)[0][3]
         except:
             user_group = 'newbee'
+
+        for sw in self.swearing:
+            if not(self.text.find(sw) == -1):
+                self.media = InputFile('imgs/swearing.jpg')
+                return 0
 
         if self.text == 'Хочу спросить.':
             await DialogueStates.question.set()
@@ -96,12 +107,13 @@ class UserMessage:
         self.output = 'Ответ был успешно отправлен!'
 
         msg_id = replied_text.split()[0]
-        msg_text = replied_text.split()[4]
+        msg_text = self.db_connection.get_question(msg_id)[0][2]
         user_id = self.db_connection.get_question(msg_id)[0][1]
 
-        self.text = "Ответ на ваше сообщение: \n \" " + msg_text + " \" \n" + self.text
-
+        self.text = "Ответ на ваше сообщение: \n \n" + msg_text
+        await self.message.forward(user_id)
         await self.bot.send_message(chat_id=user_id, text=self.text)
+        return self.db_connection.del_question(msg_id)
 
     async def question_state(self):
 
