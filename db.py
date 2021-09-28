@@ -92,6 +92,10 @@ class DBConnection:
             self.cursor.execute("SELECT * from users;")
             return self.cursor.fetchall()
 
+    def add_admin(self, user_id: int):
+        self.cursor.execute('UPDATE users SET user_group=? WHERE id=?;', ('admin', str(user_id),))
+        return self.conn.commit()
+
     def add_answer(self, key_words: str, media_paths: str, answer_text: str):
         self.cursor.execute('INSERT INTO default_answers (key_words, media_paths, answer_text) VALUES (?, ?, ?);',
                             (key_words, media_paths, answer_text))

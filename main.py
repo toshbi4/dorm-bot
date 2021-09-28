@@ -13,7 +13,7 @@ from aiogram.utils.exceptions import Throttled
 
 
 class DormBot:
-    f = open("bot_token.txt", "r")
+    f = open("cfg/bot_token.txt", "r")
     bot_token = f.read().strip()
     f.close()
 
@@ -27,6 +27,7 @@ class DormBot:
     db_connection = DBConnection()
 
     default_answers = db_connection.get_answers()
+    admin_password = 0
 
     def __init__(self):
 
@@ -92,6 +93,14 @@ class DormBot:
             await message.reply('Слишком часто пишешь! Не дудос ли это часом? --_--')
             return 0
 
+        if (message.text == str(DormBot.admin_password)) & (not(DormBot.admin_password == 0)):
+            DormBot.admin_password = 0
+            DormBot.db_connection.add_admin(message.from_user.id)
+            return await message.answer(f"Вы теперь админ. Введите \n"
+                                        f"/start\n"
+                                        f"чтобы расширить свое меню."
+                                        )
+
         state = DormBot.dp.current_state(user=message.from_user.id)
         state_name = await state.get_state()
         if (not DormBot.db_connection.select_users(user_id=message.from_user.id)) and \
@@ -105,6 +114,8 @@ class DormBot:
         msg = UserMessage(message, state, DormBot.bot, DormBot.db_connection, DormBot.default_answers)
         await msg.message_parse()
 
+        if msg.admin_password:
+            DormBot.admin_password = msg.admin_password
         if msg.output:
             await msg.message.reply(msg.output, reply=False)
         if msg.media:

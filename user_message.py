@@ -1,3 +1,5 @@
+import random
+
 from aiogram import Bot
 from aiogram.dispatcher import FSMContext
 from aiogram.types import Message, InputFile, InlineKeyboardButton, InlineKeyboardMarkup, ContentType
@@ -16,6 +18,8 @@ class UserMessage:
     inline_kb = None
     inline_kb_text = ''
     swearing = []
+    super_admin_id = 0
+    admin_password = 0
 
     def __init__(self, message: Message, state: FSMContext, bot: Bot, db_connection: DBConnection, default_answers):
 
@@ -37,6 +41,10 @@ class UserMessage:
         self.swearing = f.read().split()
         f.close()
 
+        f = open("cfg/admin_id.txt", "r")
+        self.super_admin_id = f.read()
+        f.close()
+
     async def message_parse(self):
 
         try:
@@ -48,6 +56,8 @@ class UserMessage:
             if not(self.text.find(sw) == -1):
                 self.media = InputFile('imgs/swearing.jpg')
                 return 0
+
+        print(self.admin_password)
 
         if self.text == 'Хочу спросить.':
             await DialogueStates.question.set()
@@ -75,8 +85,12 @@ class UserMessage:
                 answers_list += str(answer[0]) + '  '
                 answers_list += str(answer[1]) + '  '
                 answers_list += '\n'
-
             self.output = ' Выберите id ответа, который хотите удалить: \n' + answers_list
+
+        elif self.text == 'Случайное число.' and user_group == 'super_admin':
+            self.admin_password = random.randint(1000, 9999)
+            self.output = self.admin_password
+            return 0
         else:
             await self.state_handler()
 
@@ -168,6 +182,10 @@ class UserMessage:
             await self.state.reset_state()
             self.output = 'Вы уже зарегистрированы. Добро пожаловать.'
         user_group = 'user'
+
+        if int(self.super_admin_id) == int(self.user_id):
+            user_group = 'super_admin'
+
         if len(user_data) == 3:
             self.db_connection.add_user(self.user_id,
                                         user_data[0],
@@ -179,7 +197,9 @@ class UserMessage:
             self.output = 'Вы были успешно зарегистрированы! ' \
                           'Добро пожаловать!'
         else:
-            self.output = 'Ошибка введенных данных.'
+            self.output = 'Ошибка введенных данных. \n' \
+                          'Введите, пожалуйста, свои данные в соответствии с формой: \n' \
+                          'Имя Фамилия Комната.'
 
     async def add_default_question_state(self):
         default_answer = self.text.split(',')
