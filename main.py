@@ -9,6 +9,7 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, Message, \
     ParseMode, CallbackQuery, BotCommand, ContentType
+from aiogram.utils.exceptions import Throttled
 
 
 class DormBot:
@@ -84,6 +85,12 @@ class DormBot:
     @staticmethod
     @dp.message_handler(state='*', content_types=['photo', 'text'], )
     async def message_handler(message: Message):
+
+        try:
+            await DormBot.dp.throttle('start', rate=0.2)
+        except Throttled:
+            await message.reply('Слишком часто пишешь! Не дудос ли это часом? --_--')
+            return 0
 
         state = DormBot.dp.current_state(user=message.from_user.id)
         state_name = await state.get_state()
