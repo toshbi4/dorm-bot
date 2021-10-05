@@ -92,6 +92,22 @@ class DBConnection:
             self.cursor.execute("SELECT * from users;")
             return self.cursor.fetchall()
 
+    def get_users_list(self):
+        self.cursor.execute("SELECT * from users;")
+        return self.cursor.fetchall()
+
+    def del_user(self, user_id: int):
+        self.cursor.execute("DELETE from users where id=?;", (str(user_id),))
+        self.conn.commit()
+
+    def ban_user(self, user_id: int):
+        self.cursor.execute('UPDATE users SET user_group=? WHERE id=?;', ('ban', str(user_id),))
+        return self.conn.commit()
+
+    def unban_user(self, user_id: int):
+        self.cursor.execute('UPDATE users SET user_group=? WHERE id=?;', ('user', str(user_id),))
+        return self.conn.commit()
+
     def add_admin(self, user_id: int):
         self.cursor.execute('UPDATE users SET user_group=? WHERE id=?;', ('admin', str(user_id),))
         return self.conn.commit()

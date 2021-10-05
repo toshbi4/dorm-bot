@@ -52,8 +52,12 @@ class UserMessage:
         except:
             user_group = 'newbee'
 
+        if user_group == 'ban':
+            self.output = 'Вы в бане.'
+            self.media = InputFile('imgs/bath.png')
+            return 0
         for sw in self.swearing:
-            if not(self.text.find(sw) == -1):
+            if not(self.text.lower().find(sw) == -1):
                 self.media = InputFile('imgs/swearing.jpg')
                 return 0
 
@@ -68,17 +72,17 @@ class UserMessage:
             self.output = 'Напиши, пожалуйста, текст заявки в формате:\n' \
                           'Кому (электрику/сантехнику/плотнику)\n' \
                           'Место (комната 2222/вторая кабинка, туалет, 3й блок, 10 этаж)\n' \
-                          'Ситуация (фонтан невероятной красоты прямиком из унитаза)'
+                          'Опишите, пожалуйста, поподробнее, что у вас произошло.'
         elif self.text == 'Есть идея/пожелание/предложение.':
             await DialogueStates.idea.set()
             self.output = 'Напишите, пожалуйста, текст вашего предложения. ' \
                           'Он будет отправлен администрации для рассмотрения'
-        elif self.text == 'Добавить стандартный вопрос.' and user_group == 'admin':
+        elif self.text == 'Добавить стандартный вопрос.' and user_group in ['admin', 'super_admin']:
             await DialogueStates.add_default_question.set()
             self.output = 'Укажите данные для стандартного вопроса в формате: ' \
                           '"<ключевые слова>,' \
                           '<текст>". Также к соощению можно приложить одно фото, которое отобразится в ответе.'
-        elif self.text == 'Удалить стандартный вопрос.' and user_group == 'admin':
+        elif self.text == 'Удалить стандартный вопрос.' and user_group in ['admin', 'super_admin']:
             await DialogueStates.del_default_question.set()
             answers_list = ''
             for answer in self.default_answers:
@@ -86,7 +90,24 @@ class UserMessage:
                 answers_list += str(answer[1]) + '  '
                 answers_list += '\n'
             self.output = ' Выберите id ответа, который хотите удалить: \n' + answers_list
-
+        elif self.text == 'Получить список пользователей.' and user_group in ['admin', 'super_admin']:
+            self.output = 'Вот ваш список пользователей: \n'
+            users_list = self.db_connection.get_users_list()
+            for user in users_list:
+                self.output += str(user[0]) + ' ' + \
+                               str(user[1]) + ' ' + \
+                               str(user[2]) + ' ' + \
+                               str(user[3]) + ' ' + \
+                               str(user[4]) + ' \n'
+        elif self.text == 'Удалить пользователя.' and user_group in ['admin', 'super_admin']:
+            await DialogueStates.del_user.set()
+            self.output = 'Укажите id пользователя, которого хотите удалить: '
+        elif self.text == 'Забанить пользователя.' and user_group in ['admin', 'super_admin']:
+            await DialogueStates.ban_user.set()
+            self.output = 'Укажите id пользователя, которого хотите забанить: '
+        elif self.text == 'Разбанить пользователя.' and user_group in ['admin', 'super_admin']:
+            await DialogueStates.unban_user.set()
+            self.output = 'Укажите id пользователя, которого хотите  разбанить: '
         elif self.text == 'Случайное число.' and user_group == 'super_admin':
             self.admin_password = random.randint(1000, 9999)
             self.output = self.admin_password
@@ -109,6 +130,12 @@ class UserMessage:
             await self.add_default_question_state()
         elif state_name == 'DialogueStates:del_default_question':
             await self.del_default_question_state()
+        elif state_name == 'DialogueStates:ban_user':
+            await self.ban_user_state()
+        elif state_name == 'DialogueStates:unban_user':
+            await self.unban_user_state()
+        elif state_name == 'DialogueStates:del_user':
+            await self.del_user_state()
         else:
             if not self.message.chat.type == 'group':
                 self.output = 'Выбери действиe в меню из нижней части диалога.'
@@ -166,9 +193,22 @@ class UserMessage:
         await self.state.update_data(question=self.text)
 
     async def request_state(self):
+
+        whom = self.text.split('\n')[0].lower()
+        if not(whom.find('электрик') == -1):
+            whom = 'электрику'
+        elif not(whom.find('сантехник') == -1):
+            whom = 'сантехнику'
+        elif not(whom.find('плотник') == -1):
+            whom = 'плотнику'
+        else:
+            self.output = 'Никак не могу понять, кому адресована заявка. \n' \
+                          'Попробуйте, пожалуйста, еще раз.'
+            return 0
+
         self.db_connection.add_question(self.state.chat, self.text)
         await self.state.reset_state()
-        self.output = 'Ваша заявка успешно принята.'
+        self.output = 'Ваша заявка ' + whom + ' успешно принята.'
 
     async def idea_state(self):
         self.db_connection.add_question(self.state.chat, self.text)
@@ -195,7 +235,8 @@ class UserMessage:
 
             await self.state.reset_state()
             self.output = 'Вы были успешно зарегистрированы! ' \
-                          'Добро пожаловать!'
+                          'Добро пожаловать! \n' \
+                          'Для того, чтобы начать, введите  команду /start'
         else:
             self.output = 'Ошибка введенных данных. \n' \
                           'Введите, пожалуйста, свои данные в соответствии с формой: \n' \
@@ -245,6 +286,33 @@ class UserMessage:
         except Exception as ex:
             self.output = 'Неверный формат ввода. Введите, пожалуйста, id ответа, ' \
                           'который хотите удалить, числом.'
+            print(ex)
+
+    async def ban_user_state(self):
+        try:
+            self.db_connection.ban_user(int(self.text))
+            self.output = ' Забанил пользователя с id = ' + self.text
+            await self.state.reset_state()
+        except Exception as ex:
+            self.output = 'Неверный формат ввода. Введите, пожалуйста, id пользователя числом.'
+            print(ex)
+
+    async def unban_user_state(self):
+        try:
+            self.db_connection.unban_user(int(self.text))
+            self.output = 'Разбанил пользователя с id = ' + self.text
+            await self.state.reset_state()
+        except Exception as ex:
+            self.output = 'Неверный формат ввода. Введите, пожалуйста, id пользователя числом.'
+            print(ex)
+
+    async def del_user_state(self):
+        try:
+            self.db_connection.del_user(int(self.text))
+            self.output = 'Удалил пользователя с id = ' + self.text
+            await self.state.reset_state()
+        except Exception as ex:
+            self.output = 'Неверный формат ввода. Введите, пожалуйста, id пользователя числом.'
             print(ex)
 
     def save_question_to_queue(self):

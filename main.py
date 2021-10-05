@@ -59,13 +59,22 @@ class DormBot:
             greet_kb.add(button_request)
             greet_kb.add(button_idea)
 
-            if DormBot.db_connection.select_users(user_id=message.from_user.id)[0][3] == 'admin':
+            if DormBot.db_connection.select_users(user_id=message.from_user.id)[0][3] in ['admin', 'super_admin']:
                 button_add_answer = KeyboardButton('Добавить стандартный вопрос.')
                 button_del_answer = KeyboardButton('Удалить стандартный вопрос.')
+                button_get_users = KeyboardButton('Получить список пользователей.')
+                button_del_user = KeyboardButton('Удалить пользователя.')
+                button_ban_user = KeyboardButton('Забанить пользователя.')
+                button_unban_user = KeyboardButton('Разбанить пользователя.')
                 greet_kb.add(button_add_answer)
                 greet_kb.add(button_del_answer)
+                greet_kb.add(button_get_users)
+                greet_kb.add(button_del_user)
+                greet_kb.add(button_ban_user)
+                greet_kb.add(button_unban_user)
 
-            await message.answer(f"Привет! {message.from_user.first_name}!",
+            await message.answer(f"Привет! {message.from_user.first_name}! \n"
+                                 f"Открой меню в правом нижнем углу, чтобы получить доступ ко всем функциям.",
                                  parse_mode=ParseMode.HTML, reply_markup=greet_kb
                                  )
         else:

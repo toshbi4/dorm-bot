@@ -11,3 +11,6 @@ class DialogueStates(StatesGroup):
     registration = State()
     add_default_question = State()
     del_default_question = State()
+    ban_user = State()
+    unban_user = State()
+    del_user = State()
